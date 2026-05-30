@@ -1,0 +1,105 @@
+name: build-bazzite-lg4ff
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  push:
+    branches: [main, master]
+    paths:
+      - Containerfile
+      - .github/workflows/build.yml
+  pull_request:
+    paths:
+      - Containerfile
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: bazzite-lg4ff
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  BASE_IMAGE: ghcr.io/ublue-os/bazzite-deck
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve base tag
+        id: base
+        run: |
+          # Track the rolling 'stable' tag of bazzite-deck.
+          echo "tag=stable" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate image tags
+        id: tags
+        run: |
+          tags="latest stable ${{ steps.base.outputs.date }} ${GITHUB_SHA::7}"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          containerfiles: ./Containerfile
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ steps.tags.outputs.tags }}
+          oci: true
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            BASE_TAG=${{ steps.base.outputs.tag }}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
+        id: push
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with cosign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          if [ -n "${COSIGN_PRIVATE_KEY}" ]; then
+            cosign sign -y --key env://COSIGN_PRIVATE_KEY "${IMAGE}@${DIGEST}"
+          else
+            cosign sign -y "${IMAGE}@${DIGEST}"
+          fi
