@@ -3,16 +3,18 @@ ARG BASE_TAG="stable"
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 
-ARG COPR_REPO="kylegospo/new-lg4ff"
+ARG COPR_OWNER="lnvso"
+ARG COPR_PROJECT="new-lg4ff"
 
-RUN curl -fsSL -o /etc/yum.repos.d/_copr_${COPR_REPO//\//-}.repo \
-        "https://copr.fedorainfracloud.org/coprs/${COPR_REPO}/repo/fedora-$(rpm -E %fedora)/${COPR_REPO//\//-}-fedora-$(rpm -E %fedora).repo" && \
-    rpm-ostree install \
-        akmod-new-lg4ff \
-        new-lg4ff-udev && \
-    rm -f /etc/yum.repos.d/_copr_${COPR_REPO//\//-}.repo && \
+RUN set -euxo pipefail && \
+    FEDORA_VER="$(rpm -E %fedora)" && \
+    REPO_FILE="/etc/yum.repos.d/_copr_${COPR_OWNER}-${COPR_PROJECT}.repo" && \
+    curl -fsSL -o "${REPO_FILE}" \
+        "https://copr.fedorainfracloud.org/coprs/${COPR_OWNER}/${COPR_PROJECT}/repo/fedora-${FEDORA_VER}/${COPR_OWNER}-${COPR_PROJECT}-fedora-${FEDORA_VER}.repo" && \
+    rpm-ostree install akmod-hid-logitech-new && \
+    rm -f "${REPO_FILE}" && \
     KERNEL_VERSION="$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" && \
-    akmods --force --kernels "${KERNEL_VERSION}" --kmod new-lg4ff && \
-    modinfo "/usr/lib/modules/${KERNEL_VERSION}/extra/new-lg4ff/hid-logitech-new.ko"* && \
+    akmods --force --kernels "${KERNEL_VERSION}" --kmod hid-logitech-new && \
+    modinfo "/usr/lib/modules/${KERNEL_VERSION}/extra/hid-logitech-new/hid-logitech-new.ko"* && \
     rpm-ostree cleanup -m && \
     ostree container commit
