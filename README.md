@@ -7,7 +7,7 @@ published to GHCR.
 Image: `ghcr.io/scrapes/bazzite-lg4ff:stable`
 
 Base: `ghcr.io/ublue-os/bazzite-deck:stable`
-Module: `akmod-new-lg4ff` from COPR `kylegospo/new-lg4ff`
+Module: `akmod-hid-logitech-new` from COPR `lnvso/new-lg4ff`
 
 ## Rebase an existing Bazzite install
 

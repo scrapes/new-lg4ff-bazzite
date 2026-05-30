@@ -27,7 +27,13 @@ RUN set -euxo pipefail && \
     rm -f "${REPO_FILE}" && \
     KERNEL_VERSION="$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" && \
     akmods --force --kernels "${KERNEL_VERSION}" --kmod hid-logitech-new && \
-    modinfo /usr/lib/modules/"${KERNEL_VERSION}"/extra/hid-logitech-new/hid-logitech-new.ko* && \
+    KO="$(find /usr/lib/modules/"${KERNEL_VERSION}"/extra -name 'hid-logitech*.ko*' -print -quit)" && \
+    if [ -z "${KO}" ]; then \
+        echo "ERROR: akmods did not build a hid-logitech module for ${KERNEL_VERSION}" >&2; \
+        cat /var/cache/akmods/hid-logitech-new/*.log 2>/dev/null || true; \
+        exit 1; \
+    fi && \
+    modinfo "${KO}" && \
     depmod -a "${KERNEL_VERSION}" && \
     rpm-ostree cleanup -m && \
     ostree container commit
