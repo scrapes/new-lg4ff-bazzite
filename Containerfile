@@ -26,11 +26,15 @@ RUN set -euxo pipefail && \
     mv -f /usr/sbin/akmodsbuild.real /usr/sbin/akmodsbuild && \
     rm -f "${REPO_FILE}" && \
     KERNEL_VERSION="$(rpm -q --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" && \
-    akmods --force --kernels "${KERNEL_VERSION}" --kmod hid-logitech-new && \
-    KO="$(find /usr/lib/modules/"${KERNEL_VERSION}"/extra -name 'hid-logitech*.ko*' -print -quit)" && \
+    akmods --force --kernels "${KERNEL_VERSION}" --kmod hid-logitech-new || true; \
+    KO="$(find /usr/lib/modules/"${KERNEL_VERSION}"/extra -name 'hid-logitech*.ko*' -print -quit 2>/dev/null || true)"; \
     if [ -z "${KO}" ]; then \
-        echo "ERROR: akmods did not build a hid-logitech module for ${KERNEL_VERSION}" >&2; \
-        cat /var/cache/akmods/hid-logitech-new/*.log 2>/dev/null || true; \
+        echo "=== ERROR: akmods did not build a hid-logitech module for ${KERNEL_VERSION}; akmods logs follow ===" >&2; \
+        for f in /var/cache/akmods/hid-logitech-new/*.log; do \
+            [ -f "$f" ] || continue; \
+            echo "----- $f -----" >&2; \
+            cat "$f" >&2; \
+        done; \
         exit 1; \
     fi && \
     modinfo "${KO}" && \
