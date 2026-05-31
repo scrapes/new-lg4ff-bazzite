@@ -1,0 +1,36 @@
+#!/bin/bash
+# Drop-in replacement for runuser, used only while akmods builds the kmod.
+#
+# akmods always builds the kmod RPM as the unprivileged "akmods" user via:
+#     runuser -s /bin/bash -c "akmodsbuild ..." akmods
+# Under rootless buildah, runuser cannot open a PAM session and dies with
+# "runuser: cannot open session: Permission denied". We can't sidestep this
+# by building as root either, because akmodsbuild refuses to run as root
+# (it tests `[[ -w / ]]`).
+#
+# setpriv drops to the target user without going through PAM, so the build
+# still runs as the akmods user exactly as intended -- just without the
+# login session that buildah can't provide. setpriv --regid only accepts a
+# numeric GID, so resolve the user's names to IDs first.
+set -eu
+
+shell=/bin/bash
+cmd=""
+user=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -s) shell="$2"; shift 2 ;;
+        -c) cmd="$2"; shift 2 ;;
+        -g|-G) shift 2 ;;
+        --) shift ;;
+        -*) shift ;;
+        *)  user="$1"; shift ;;
+    esac
+done
+
+uid="$(id -u "$user")"
+gid="$(id -g "$user")"
+home="$(getent passwd "$user" | cut -d: -f6)"
+export HOME="${home:-/tmp}" USER="$user" LOGNAME="$user"
+
+exec setpriv --reuid="$uid" --regid="$gid" --init-groups "$shell" -c "$cmd"
