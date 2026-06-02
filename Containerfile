@@ -1,4 +1,4 @@
-ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-deck"
+ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-deck-nvidia"
 ARG BASE_TAG="stable"
 
 FROM ${BASE_IMAGE}:${BASE_TAG}

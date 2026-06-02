@@ -1,4 +1,4 @@
-name: build-bazzite-lg4ff
+name: build-bazzite-deck-nvidia-lg4ff
 
 on:
   schedule:
@@ -7,17 +7,19 @@ on:
     branches: [main, master]
     paths:
       - Containerfile
+      - akmods-runuser-shim
       - .github/workflows/build.yml
   pull_request:
     paths:
       - Containerfile
+      - akmods-runuser-shim
       - .github/workflows/build.yml
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: bazzite-lg4ff
+  IMAGE_NAME: bazzite-deck-nvidia-lg4ff
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
-  BASE_IMAGE: ghcr.io/ublue-os/bazzite-deck
+  BASE_IMAGE: ghcr.io/ublue-os/bazzite-deck-nvidia
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
