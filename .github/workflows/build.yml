@@ -91,7 +91,23 @@ jobs:
 
       - name: Install cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
+        env:
+          COSIGN_VERSION: v3.0.6
+          COSIGN_SHA256: c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+        run: |
+          # Download cosign directly with retries; the cosign-installer action
+          # does a single-shot fetch from GitHub releases that intermittently
+          # fails the nightly build with curl exit 22 (transient HTTP error).
+          url="https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          for attempt in 1 2 3 4 5; do
+            curl -fsSL -o cosign "${url}" && break
+            echo "cosign download failed (attempt ${attempt}/5); retrying in $((attempt * 5))s"
+            sleep $((attempt * 5))
+          done
+          echo "${COSIGN_SHA256}  cosign" | sha256sum -c -
+          sudo install -m 0755 cosign /usr/local/bin/cosign
+          rm -f cosign
+          cosign version
 
       - name: Sign image with cosign
         if: github.event_name != 'pull_request'
